@@ -5,7 +5,6 @@ from backend.services.order_services import cleanup_expired_orders
 logger = logging.getLogger("ttl_service")
 logging.basicConfig(level=logging.INFO)
 
-# Default configuration: Run daily (86400 seconds), TTL threshold 30 days
 CLEANUP_INTERVAL_SECONDS = 86400
 TTL_DAYS = 30
 

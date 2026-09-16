@@ -30,4 +30,11 @@ ORDER
 ├── PATCH  /orders/{order_id}/status
 └── DELETE /orders/{order_id}
 
+
+PASSENGER AUTHENTICATION (JWT)
+├── POST   /auth/passenger/login      (Login via 10-digit phone number -> Returns JWT token)
+├── GET    /auth/passenger/me         (Protected: Get current passenger profile)
+└── GET    /auth/passenger/orders     (Protected: Get orders for authenticated passenger)
+
+
  
