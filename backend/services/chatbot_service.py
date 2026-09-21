@@ -20,7 +20,6 @@ def extract_hotel_mention_from_text(message: str, existing_hotels: List[Dict[str
    
     msg_lower = message.strip().lower()
 
-    # Generic hotel/restaurant queries should not be matched as a single hotel name
     generic_inquiries = [
         "what are the hotel available",
         "what are the hotels available",
@@ -44,14 +43,13 @@ def extract_hotel_mention_from_text(message: str, existing_hotels: List[Dict[str
         if generic in msg_lower:
             return None
 
-    # 1. Match against known hotel names in DB (case-insensitive)
+   
     for hotel in existing_hotels:
         hotel_name = hotel["name"].lower()
-        # Word boundary match to avoid partial substrings
+        
         if re.search(rf'\b{re.escape(hotel_name)}\b', msg_lower):
             return hotel["name"]
 
-    # 2. Extract potential restaurant names from patterns like "for Annapoorna", "in KFC", "from KFC", "at KFC"
     patterns = [
         r'\bfor\s+(?:the\s+)?([a-zA-Z0-9\s\'\-_]+?)(?:\?|\.|\!|\,|$|\s+menu|\s+food|\s+hotel|\s+restaurant)',
         r'\bin\s+([a-zA-Z0-9\s\'\-_]+?)(?:\?|\.|\!|\,|$|\s+menu|\s+food|\s+hotel|\s+restaurant)',
@@ -62,7 +60,6 @@ def extract_hotel_mention_from_text(message: str, existing_hotels: List[Dict[str
         match = re.search(pattern, message, re.IGNORECASE)
         if match:
             candidate = match.group(1).strip()
-            # Ignore common stopwords or generic terms
             if candidate.lower() not in {"the", "a", "an", "this", "our", "all", "your", "hotel", "hotels", "restaurant", "restaurants", "highest", "lowest", "total"}:
                 return candidate
 
@@ -113,7 +110,7 @@ def chat_with_hotel_menu(
                 f"AVAILABLE MENU:\n{menu_text}"
             )
 
-    # 2. If hotel_name is specified
+    # If hotel_name is specified
     elif hotel_name is not None and hotel_name.strip():
         hotel = get_hotel_by_name(hotel_name.strip())
         if not hotel or not hotel.get("is_active", True):
@@ -146,7 +143,7 @@ def chat_with_hotel_menu(
                 f"AVAILABLE MENU:\n{menu_text}"
             )
 
-    # 3. Dynamic lookup from user message
+    # Dynamic user message
     else:
         all_hotels = get_all_hotels()
         active_hotels = [h for h in all_hotels if h.get("is_active", True)]
@@ -190,7 +187,6 @@ def chat_with_hotel_menu(
             if is_revenue_query or "what are the hotel" in msg_lower or "list hotels" in msg_lower:
                 revenue_list = get_all_hotels_revenue_summary()
                 hotel_loc_map = {h["id"]: h.get("location", "") for h in active_hotels}
-                # Revenue & Hotel catalog summary sorted by revenue
                 hotel_list_overview = "\n".join(
                     f"- {r['hotel_name']} (Location: {hotel_loc_map.get(r['hotelId'], '')}) | Total Orders: {r['total_orders']} | Total Revenue: Rs. {r['total_revenue']:.2f}"
                     for r in revenue_list
@@ -230,7 +226,6 @@ def chat_with_hotel_menu(
                     f"AVAILABLE MENUS:\n" + "\n\n".join(context_lines)
                 )
 
-    # Construct strict database-grounded prompt for Llama
     prompt = f"""You are a helpful food ordering and restaurant assistant for our multi-restaurant food delivery system.
 
 DATABASE RECORDS:
