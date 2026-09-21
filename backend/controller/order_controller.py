@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, status
 
 from backend.schema.order_schema import (
     OrderCreate,
@@ -10,6 +10,11 @@ from backend.schema.order_schema import (
 )
 
 from backend.services import order_services
+from backend.dependencies.auth_dependency import (
+    get_current_passenger,
+    get_current_hotel
+)
+from backend.model.pass_model import Passenger
 
 
 router = APIRouter(
@@ -25,6 +30,12 @@ def create_order(order_data: OrderCreate):
     try:
         return order_services.create_order(order_data)
 
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -32,20 +43,6 @@ def create_order(order_data: OrderCreate):
         )
 
 
-@router.get(
-    "/orders",
-    response_model=list[OrderDetailsResponse]
-)
-def get_all_orders():
-
-    try:
-        return order_services.get_all_orders()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
 
 
 @router.get(
@@ -66,9 +63,19 @@ def get_order(order_id: int):
 
 @router.get(
     "/passengers/{passenger_id}/orders",
-    response_model=list[PassengerOrderResponse]
+    response_model=list[PassengerOrderResponse],
+    summary="Get Passenger Orders (JWT Protected)",
+    description="Fetches all orders placed by the passenger. Requires valid Passenger JWT token."
 )
-def get_passenger_orders(passenger_id: int):
+def get_passenger_orders(
+    passenger_id: int,
+    current_passenger: Passenger = Depends(get_current_passenger)
+):
+    if current_passenger.id != passenger_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only view your own orders"
+        )
 
     return order_services.get_orders_by_passenger(
         passenger_id
@@ -79,7 +86,15 @@ def get_passenger_orders(passenger_id: int):
     "/hotels/{hotel_id}/orders",
     response_model=list[HotelOrderResponse]
 )
-def get_hotel_orders(hotel_id: int):
+def get_hotel_orders(
+    hotel_id: int,
+    current_hotel: dict = Depends(get_current_hotel)
+):
+    if current_hotel["id"] != hotel_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only view orders for your own hotel"
+        )
 
     return order_services.get_orders_by_hotel(
         hotel_id
@@ -92,10 +107,17 @@ def get_hotel_orders(hotel_id: int):
 )
 def update_order_status(
     order_id: int,
-    status_data: OrderStatusUpdate
+    status_data: OrderStatusUpdate,
+    current_hotel: dict = Depends(get_current_hotel)
 ):
-
     try:
+        order = order_services.get_order_by_id(order_id)
+        if order["hotelId"] != current_hotel["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You can only update orders belonging to your hotel"
+            )
+
         return order_services.update_order_status(
             order_id,
             status_data.status
@@ -106,6 +128,9 @@ def update_order_status(
             status_code=400,
             detail=str(e)
         )
+
+    except HTTPException:
+        raise
 
 
 @router.delete(

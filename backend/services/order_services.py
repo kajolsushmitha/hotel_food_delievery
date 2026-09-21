@@ -1,4 +1,5 @@
-from backend.repository import order_repository
+from decimal import Decimal
+from backend.repository import order_repository, pass_repository, menu_repository
 
 
 ALLOWED_STATUSES = {
@@ -12,7 +13,55 @@ ALLOWED_STATUSES = {
 
 
 def create_order(order_data):
-    return order_repository.create_order(order_data)
+    # 1. Resolve passenger by name or id
+    passenger = None
+    if getattr(order_data, "passengerName", None):
+        passenger = pass_repository.get_passenger_by_name(order_data.passengerName)
+        if not passenger:
+            raise ValueError(f"Passenger with name '{order_data.passengerName}' not found")
+        passenger_id = passenger.id
+    elif getattr(order_data, "passengerId", None):
+        passenger = pass_repository.get_passenger_by_id(order_data.passengerId)
+        if not passenger:
+            raise ValueError(f"Passenger with id {order_data.passengerId} not found")
+        passenger_id = passenger.id
+    else:
+        raise ValueError("Passenger name is required to place an order")
+
+    # 2. Check if hotel exists
+    if not menu_repository.hotel_exists(order_data.hotelId):
+        raise ValueError(f"Hotel with id {order_data.hotelId} not found")
+
+    # 3. Calculate total amount and validate order items
+    total_amount = Decimal("0.00")
+    if hasattr(order_data, "items") and order_data.items:
+        for item in order_data.items:
+            if item.quantity <= 0:
+                raise ValueError("Item quantity must be greater than 0")
+
+            menu_item = menu_repository.get_menu_item_by_id(item.menuItemId)
+            if not menu_item:
+                raise ValueError(f"Menu item with id {item.menuItemId} not found")
+
+            if menu_item["hotelId"] != order_data.hotelId:
+                raise ValueError(
+                    f"Menu item '{menu_item['name']}' (ID: {item.menuItemId}) does not belong to hotel {order_data.hotelId}"
+                )
+
+            # Auto calculate price and subtotal using database menu item price
+            item.price = Decimal(str(menu_item["price"]))
+            item.subtotal = item.price * item.quantity
+            total_amount += item.subtotal
+    elif getattr(order_data, "totalAmount", None) is not None:
+        total_amount = Decimal(str(order_data.totalAmount))
+
+    return order_repository.create_order(
+        order_data=order_data,
+        passenger_id=passenger_id,
+        hotel_id=order_data.hotelId,
+        total_amount=total_amount,
+        items=order_data.items or []
+    )
 
 
 def get_all_orders():

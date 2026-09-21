@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.schema.history_schema import HistoryQueryParams
 from backend.services.history_services import (
@@ -6,6 +6,7 @@ from backend.services.history_services import (
     HotelOrderHistoryNotFoundException,
     InvalidDateRangeException
 )
+from backend.dependencies.auth_dependency import get_current_hotel
 
 
 router = APIRouter(
@@ -19,8 +20,15 @@ router = APIRouter(
 )
 def get_order_history(
     hotel_id: int,
-    params: HistoryQueryParams = Depends()
+    params: HistoryQueryParams = Depends(),
+    current_hotel: dict = Depends(get_current_hotel)
 ):
+    if current_hotel["id"] != hotel_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only view order history for your own hotel"
+        )
+
     try:
         return get_hotel_order_history(
             hotel_id=hotel_id,

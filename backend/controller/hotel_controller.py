@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Depends, status
 
 from backend.schema.hotel_schema import (
     HotelCreate,
@@ -18,6 +18,7 @@ from backend.services.hotel_services import (
 from backend.repository.hotel_repository import (
     HotelDatabaseException
 )
+from backend.dependencies.auth_dependency import get_current_hotel
 
 
 router = APIRouter(
@@ -31,7 +32,7 @@ router = APIRouter(
     response_model=HotelResponse,
     status_code=201
 )
-def create_hotel_api(hotel: HotelCreate):
+def create_hotel(hotel: HotelCreate):
 
     try:
         return create_hotel(hotel)
@@ -47,7 +48,7 @@ def create_hotel_api(hotel: HotelCreate):
     "/",
     response_model=list[HotelResponse]
 )
-def get_all_hotels_api():
+def get_all_hotels():
 
     try:
         return get_all_hotels()
@@ -63,7 +64,7 @@ def get_all_hotels_api():
     "/{hotel_id}",
     response_model=HotelResponse
 )
-def get_hotel_api(hotel_id: int):
+def get_hotel(hotel_id: int):
 
     try:
         return get_hotel_by_id(hotel_id)
@@ -85,10 +86,16 @@ def get_hotel_api(hotel_id: int):
     "/{hotel_id}",
     response_model=HotelResponse
 )
-def update_hotel_api(
+def update_hotel(
     hotel_id: int,
-    hotel: HotelUpdate
+    hotel: HotelUpdate,
+    current_hotel: dict = Depends(get_current_hotel)
 ):
+    if current_hotel["id"] != hotel_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only update your own hotel profile"
+        )
 
     try:
         return update_hotel(
@@ -113,7 +120,15 @@ def update_hotel_api(
     "/{hotel_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-def delete_hotel_api(hotel_id: int):
+def delete_hotel(
+    hotel_id: int,
+    current_hotel: dict = Depends(get_current_hotel)
+):
+    if current_hotel["id"] != hotel_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only delete your own hotel"
+        )
 
     try:
         delete_hotel(hotel_id)

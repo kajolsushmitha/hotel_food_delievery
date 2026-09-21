@@ -110,6 +110,36 @@ def get_hotel_by_id(hotel_id: int):
             connection.close()
 
 
+def get_hotel_by_phone(phone: str):
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT id, name, location, phone, is_active
+            FROM hotel
+            WHERE phone = %s
+        """
+
+        cursor.execute(query, (phone,))
+        return cursor.fetchone()
+
+    except Exception as e:
+        raise HotelDatabaseException(
+            f"Database error while fetching hotel by phone: {str(e)}"
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
+
 def update_hotel(hotel_id: int, data: dict):
     connection = None
     cursor = None
@@ -189,3 +219,76 @@ def delete_hotel(hotel_id: int):
 
         if connection:
             connection.close()
+
+
+def get_hotel_by_name(hotel_name: str):
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT id, name, location, phone, is_active
+            FROM hotel
+            WHERE LOWER(name) = LOWER(%s)
+               OR LOWER(name) LIKE CONCAT('%', LOWER(%s), '%')
+            LIMIT 1
+        """
+
+        cursor.execute(query, (hotel_name, hotel_name))
+        return cursor.fetchone()
+
+    except Exception as e:
+        raise HotelDatabaseException(
+            f"Database error while searching hotel by name: {str(e)}"
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
+
+def get_active_hotels_with_menus():
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT 
+                h.id AS hotel_id,
+                h.name AS hotel_name,
+                h.location AS hotel_location,
+                m.id AS menu_id,
+                m.name AS item_name,
+                m.price,
+                m.category,
+                m.description,
+                m.is_available
+            FROM hotel h
+            LEFT JOIN menu_item m ON h.id = m.hotelId AND m.is_available = 1
+            WHERE h.is_active = 1
+            ORDER BY h.name, m.name
+        """
+
+        cursor.execute(query)
+        return cursor.fetchall()
+
+    except Exception as e:
+        raise HotelDatabaseException(
+            f"Database error while fetching active hotels and menus: {str(e)}"
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()

@@ -1,4 +1,4 @@
-from backend.repository import pass_repository
+from backend.repository import pass_repository, hotel_repository
 from backend.services import order_services
 from backend.schema.order_schema import OrderCreate
 from backend.schema.auth_schema import AuthenticatedOrderCreate
@@ -9,6 +9,12 @@ from backend.model.pass_model import Passenger
 class PassengerNotFoundException(Exception):
     def __init__(self, phone: str):
         self.message = f"Passenger with phone {phone} not found. Please register first."
+        super().__init__(self.message)
+
+
+class HotelNotFoundException(Exception):
+    def __init__(self, phone: str):
+        self.message = f"Hotel with phone {phone} not found. Please register first."
         super().__init__(self.message)
 
 
@@ -32,12 +38,32 @@ def login_passenger(phone: str) -> dict:
     }
 
 
+def login_hotel(phone: str) -> dict:
+    hotel = hotel_repository.get_hotel_by_phone(phone)
+    if hotel is None:
+        raise HotelNotFoundException(phone)
+
+    token_data = {
+        "sub": str(hotel["id"]),
+        "phone": hotel["phone"],
+        "role": "hotel"
+    }
+    access_token = create_access_token(data=token_data)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "hotel": hotel
+    }
+
+
 def create_authenticated_passenger_order(
     current_passenger: Passenger,
     order_data: AuthenticatedOrderCreate
 ):
     
     full_order_data = OrderCreate(
+        passengerName=current_passenger.name,
         passengerId=current_passenger.id,
         hotelId=order_data.hotelId,
         totalAmount=order_data.totalAmount,

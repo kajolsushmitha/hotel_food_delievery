@@ -59,6 +59,59 @@ def get_passenger_by_phone(phone: str):
             connection.close()
 
 
+def get_passenger_by_name(name: str):
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                id,
+                name,
+                phone,
+                busNo,
+                email,
+                age,
+                gender,
+                seatNo
+            FROM passenger
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(%s))
+            LIMIT 1
+        """
+
+        cursor.execute(query, (name,))
+        row = cursor.fetchone()
+
+        if row:
+            return Passenger(
+                id=row["id"],
+                name=row["name"],
+                phone=row["phone"],
+                busNo=row["busNo"],
+                email=row["email"],
+                age=row["age"],
+                gender=row["gender"],
+                seatNo=row["seatNo"]
+            )
+
+        return None
+
+    except mysql.connector.Error as e:
+        raise PassengerDatabaseException(
+            f"Failed to check passenger by name: {str(e)}"
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
+
 def create_passenger(
     name: str,
     phone: str,

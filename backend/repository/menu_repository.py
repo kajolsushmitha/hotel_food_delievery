@@ -45,6 +45,43 @@ def hotel_exists(hotel_id: int):
             connection.close()
 
 
+def get_menu_item_by_name(hotel_id: int, name: str):
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                id,
+                hotelId,
+                name,
+                description,
+                price,
+                category,
+                is_available
+            FROM menu_item
+            WHERE hotelId = %s AND LOWER(TRIM(name)) = LOWER(TRIM(%s))
+            LIMIT 1
+        """
+
+        cursor.execute(query, (hotel_id, name))
+        return cursor.fetchone()
+
+    except mysql.connector.Error as e:
+        raise MenuDatabaseException(
+            f"Database error while checking menu item by name: {str(e)}"
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
 def create_menu_item(hotel_id: int, menu_data):
     connection = None
     cursor = None
@@ -232,7 +269,6 @@ def update_menu_item(menu_id: int, menu_data):
         if cursor.rowcount == 0:
             connection.rollback()
 
-            # Check whether the item exists
             get_menu_item_by_id(menu_id)
 
         connection.commit()

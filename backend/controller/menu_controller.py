@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Depends, status
 
 from backend.schema.menu_schema import (
     MenuItemCreate,
@@ -11,7 +11,8 @@ from backend.services.menu_services import (
     get_hotel_menu,
     get_menu,
     update_menu,
-    delete_menu
+    delete_menu,
+    MenuItemAlreadyExistsException
 )
 
 from backend.repository.menu_repository import (
@@ -19,6 +20,7 @@ from backend.repository.menu_repository import (
     MenuNotFoundException,
     HotelNotFoundException
 )
+from backend.dependencies.auth_dependency import get_current_hotel
 
 
 router = APIRouter(
@@ -32,14 +34,27 @@ router = APIRouter(
 )
 def create_menu(
     hotel_id: int,
-    menu_data: MenuItemCreate
+    menu_data: MenuItemCreate,
+    current_hotel: dict = Depends(get_current_hotel)
 ):
+    if current_hotel["id"] != hotel_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You can only add menu items to your own hotel"
+        )
+
     try:
         return add_menu_item(hotel_id, menu_data)
 
     except HotelNotFoundException as e:
         raise HTTPException(
             status_code=404,
+            detail=str(e)
+        )
+
+    except MenuItemAlreadyExistsException as e:
+        raise HTTPException(
+            status_code=409,
             detail=str(e)
         )
 
@@ -100,10 +115,17 @@ def get_menu_item(menu_id: int):
 )
 def patch_menu_item(
     menu_id: int,
-    menu_data: MenuItemUpdate
+    menu_data: MenuItemUpdate,
+    current_hotel: dict = Depends(get_current_hotel)
 ):
-
+    # Verify ownership before updating
     try:
+        item = get_menu(menu_id)
+        if item["hotelId"] != current_hotel["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You can only update menu items belonging to your hotel"
+            )
         return update_menu(menu_id, menu_data)
 
     except MenuNotFoundException as e:
@@ -111,6 +133,15 @@ def patch_menu_item(
             status_code=404,
             detail=str(e)
         )
+
+    except MenuItemAlreadyExistsException as e:
+        raise HTTPException(
+            status_code=409,
+            detail=str(e)
+        )
+
+    except HTTPException:
+        raise
 
     except MenuDatabaseException as e:
         raise HTTPException(
@@ -122,9 +153,19 @@ def patch_menu_item(
 @router.delete(
     "/menu/{menu_id}"
 )
-def remove_menu_item(menu_id: int):
-
+def remove_menu_item(
+    menu_id: int,
+    current_hotel: dict = Depends(get_current_hotel)
+):
+    
     try:
+        item = get_menu(menu_id)
+        if item["hotelId"] != current_hotel["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You can only delete menu items belonging to your hotel"
+            )
+
         delete_menu(menu_id)
 
         return {
@@ -136,6 +177,9 @@ def remove_menu_item(menu_id: int):
             status_code=404,
             detail=str(e)
         )
+
+    except HTTPException:
+        raise
 
     except MenuDatabaseException as e:
         raise HTTPException(

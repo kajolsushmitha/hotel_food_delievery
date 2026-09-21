@@ -1,13 +1,18 @@
 import uuid
 from backend.db import get_connection
 
-def create_order(order_data):
+def create_order(order_data=None, passenger_id=None, hotel_id=None, total_amount=None, items=None):
     connection = None
     cursor = None
 
     try:
         connection = get_connection()
         cursor = connection.cursor(dictionary=True)
+
+        p_id = passenger_id if passenger_id is not None else getattr(order_data, 'passengerId', None)
+        h_id = hotel_id if hotel_id is not None else getattr(order_data, 'hotelId', None)
+        tot_amt = total_amount if total_amount is not None else getattr(order_data, 'totalAmount', None)
+        order_items = items if items is not None else (getattr(order_data, 'items', None) or [])
 
         query = """
             INSERT INTO orders
@@ -16,15 +21,15 @@ def create_order(order_data):
         """
 
         values = (
-            order_data.passengerId,
-            order_data.hotelId,
-            order_data.totalAmount
+            p_id,
+            h_id,
+            tot_amt
         )
 
         cursor.execute(query, values)
         order_id = cursor.lastrowid
 
-        if hasattr(order_data, 'items') and order_data.items:
+        if order_items:
             item_query = """
                 INSERT INTO order_items
                 (id, orderId, menuItemId, quantity, price, subtotal)
@@ -39,7 +44,7 @@ def create_order(order_data):
                     item.price,
                     item.subtotal
                 )
-                for item in order_data.items
+                for item in order_items
             ]
             cursor.executemany(item_query, item_values)
 
@@ -47,9 +52,17 @@ def create_order(order_data):
 
         cursor.execute(
             """
-            SELECT *
-            FROM orders
-            WHERE id = %s
+            SELECT 
+                o.id,
+                o.passengerId,
+                p.name AS passengerName,
+                o.hotelId,
+                o.totalAmount,
+                o.status,
+                o.orderTime
+            FROM orders o
+            JOIN passenger p ON o.passengerId = p.id
+            WHERE o.id = %s
             """,
             (order_id,)
         )
@@ -322,10 +335,7 @@ def delete_order(order_id: int):
 
 
 def delete_expired_orders(days: int = 30) -> list:
-    """
-    Deletes orders older than `days` (along with associated items) using TTL logic
-    and returns the list of deleted orders.
-    """
+   
     connection = None
     cursor = None
 
@@ -333,7 +343,7 @@ def delete_expired_orders(days: int = 30) -> list:
         connection = get_connection()
         cursor = connection.cursor(dictionary=True)
 
-        # 1. Fetch expired orders before deletion
+        
         fetch_query = """
             SELECT id, hotelId, passengerId, totalAmount, status, orderTime
             FROM orders
@@ -348,14 +358,14 @@ def delete_expired_orders(days: int = 30) -> list:
         expired_ids = [order["id"] for order in expired_orders]
         format_strings = ','.join(['%s'] * len(expired_ids))
 
-        # 2. Delete associated order items
+        
         delete_items_query = f"""
             DELETE FROM order_items
             WHERE orderId IN ({format_strings})
         """
         cursor.execute(delete_items_query, tuple(expired_ids))
 
-        # 3. Delete expired orders
+        
         delete_orders_query = f"""
             DELETE FROM orders
             WHERE id IN ({format_strings})

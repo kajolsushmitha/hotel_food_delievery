@@ -129,3 +129,85 @@ def count_order_history(
     finally:
         cursor.close()
         connection.close()
+
+
+def get_hotel_revenue_summary(hotel_id: int):
+    """
+    Computes total orders and total revenue for a specific hotel from hotel_order_history table.
+    """
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        query = """
+            SELECT 
+                h.hotelId,
+                COUNT(DISTINCT h.id) AS total_orders,
+                COALESCE(SUM(jt.subtotal), 0) AS total_revenue
+            FROM hotel_order_history h,
+            JSON_TABLE(
+                h.items,
+                '$[*]' COLUMNS (
+                    subtotal DECIMAL(10,2) PATH '$.subtotal'
+                )
+            ) AS jt
+            WHERE h.hotelId = %s
+            GROUP BY h.hotelId
+        """
+        cursor.execute(query, (hotel_id,))
+        result = cursor.fetchone()
+        if not result:
+            return {
+                "hotelId": hotel_id,
+                "total_orders": 0,
+                "total_revenue": 0.0
+            }
+        return {
+            "hotelId": result["hotelId"],
+            "total_orders": result["total_orders"],
+            "total_revenue": float(result["total_revenue"])
+        }
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_all_hotels_revenue_summary():
+    """
+    Computes total orders and total revenue for all hotels from hotel_order_history table.
+    """
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        query = """
+            SELECT 
+                h.hotelId,
+                hot.name AS hotel_name,
+                COUNT(DISTINCT h.id) AS total_orders,
+                COALESCE(SUM(jt.subtotal), 0) AS total_revenue
+            FROM hotel_order_history h
+            JOIN hotel hot ON h.hotelId = hot.id
+            JOIN JSON_TABLE(
+                h.items,
+                '$[*]' COLUMNS (
+                    subtotal DECIMAL(10,2) PATH '$.subtotal'
+                )
+            ) AS jt
+            GROUP BY h.hotelId, hot.name
+            ORDER BY total_revenue DESC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return [
+            {
+                "hotelId": r["hotelId"],
+                "hotel_name": r["hotel_name"],
+                "total_orders": r["total_orders"],
+                "total_revenue": float(r["total_revenue"])
+            }
+            for r in rows
+        ]
+    finally:
+        cursor.close()
+        connection.close()

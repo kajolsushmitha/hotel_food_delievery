@@ -24,11 +24,11 @@ def get_hotel_order_history(
     limit=20,
     offset=0
 ):
-    # adjust it to 23:59:59 to include the entire day.
+    
     if end_time is not None and hasattr(end_time, "hour") and end_time.hour == 0 and end_time.minute == 0 and end_time.second == 0:
         end_time = end_time.replace(hour=23, minute=59, second=59)
 
-    # Validate time range
+
     if (
         start_time is not None
         and end_time is not None

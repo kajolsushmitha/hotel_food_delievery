@@ -94,10 +94,5 @@ CREATE TABLE IF NOT EXISTS hotel_order_history (
 
     CONSTRAINT hotel_order_history_ibfk_2
         FOREIGN KEY (passengerId)
-        REFERENCES passenger (id),
-
-    CONSTRAINT hotel_order_history_ibfk_3
-        FOREIGN KEY (orderId)
-        REFERENCES orders (id)
-
+        REFERENCES passenger (id)
 ) ;

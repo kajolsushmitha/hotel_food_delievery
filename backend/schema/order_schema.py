@@ -7,15 +7,16 @@ from typing import Optional, List
 class OrderItemCreate(BaseModel):
     menuItemId: int
     quantity: int
-    price: Decimal
-    subtotal: Decimal
+    price: Optional[Decimal] = None
+    subtotal: Optional[Decimal] = None
 
 
 class OrderCreate(BaseModel):
-    passengerId: int
+    passengerName: str
     hotelId: int
-    totalAmount: Decimal
-    items: Optional[List[OrderItemCreate]] = []
+    #passengerId: Optional[int] = None
+    #totalAmount: Optional[Decimal] = None
+    items: List[OrderItemCreate] = []
 
 
 class OrderStatusUpdate(BaseModel):
@@ -25,6 +26,7 @@ class OrderStatusUpdate(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     passengerId: int
+    passengerName: Optional[str] = None
     hotelId: int
     totalAmount: Decimal
     status: str
