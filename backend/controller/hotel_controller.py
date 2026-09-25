@@ -5,7 +5,7 @@ from backend.schema.hotel_schema import (
     HotelUpdate,
     HotelResponse
 )
-
+from backend.repository.hotel_repository import create_hotel as create_hotel_repo
 from backend.services.hotel_services import (
     create_hotel,
     get_all_hotels,
@@ -35,7 +35,7 @@ router = APIRouter(
 def create_hotel(hotel: HotelCreate):
 
     try:
-        return create_hotel(hotel)
+        return create_hotel_repo(hotel)
 
     except HotelDatabaseException as e:
         raise HTTPException(
